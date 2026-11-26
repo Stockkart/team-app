@@ -26,12 +26,12 @@ pnpm-workspace.yaml `packages/*`: the one workspace package is packages/attendan
 .nvmrc              Node 22
 packages/attendance-protocol/  the app's copy of the protocol package (`@stockkart/attendance-protocol`): wire types, canonical payloads, pairing-code rules, phone rule, message texts; `src/**` and `fixtures/**` byte-identical to inventory-platform/platform/attendance-protocol (DD21)
 scripts/protocol-parity.mjs  `node scripts/protocol-parity.mjs`: diffs packages/attendance-protocol against `$INVENTORY_PLATFORM_DIR/platform/attendance-protocol` (default ../inventory-platform); skip + exit 0 when the other repository is absent, exit 1 naming every missing or differing file
-.github/workflows/  ci.yml (lint, typecheck, test, check:strings, protocol parity), android.yml (prebuild + assembleDebug), ios.yml (prebuild + xcodebuild)
+.github/workflows/  ci.yml (lint, typecheck, test, check:strings, protocol parity), android.yml (prebuild + assembleDebug), ios.yml (prebuild + xcodebuild), release.yml (signed bundleRelease → Google Play, see Releasing)
 AGENTS.md           the rules for agents and new engineers changing this repository
 eslint.config.mjs, tsconfig*.json, .prettierrc  standalone tooling (no file outside the repository is referenced)
 app.json            static Expo config: package ids, permissions, `userInterfaceStyle: automatic` (R12.10), config plugins (build-properties, camera, location, image-picker, secure-store, sqlite)
-app.config.js       dynamic config: refuses to build unless EXPO_PUBLIC_API_URL is https:// (R9.7) and EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is set (design DD8)
-eas.json            EAS Build profiles `preview` (Play internal testing track) and `production`; EAS env vars supply EXPO_PUBLIC_API_URL and EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
+app.config.js       dynamic config: refuses to build unless EXPO_PUBLIC_API_URL is https:// (R9.7) and EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is set (design DD8); APP_VERSION_CODE / APP_VERSION_NAME override android.versionCode / version for release builds
+plugins/            withDebugUserCaTrust.js (debug builds trust user-installed CAs), withReleaseSigning.js (release signing config from the upload* Gradle properties, else debug signing)
 metro.config.js     expo/metro-config defaults (the repository root is the pnpm workspace root) plus the `.js` → `.ts` retry for the protocol package's relative imports
 babel.config.js     babel-preset-expo
 index.ts            entry: imports src/config first, then registerRootComponent(App)
@@ -102,7 +102,7 @@ All rejections are `BiometricSignerError` with a `code` from that list (`SIGNER_
 | `modules/biometric-signer/android/`                     | Kotlin. `SignerKeyStore`: AndroidKeyStore EC `secp256r1`, StrongBox then TEE, a key not inside secure hardware is deleted and refused; punch key `setUserAuthenticationRequired(true)`, API 30+ `setUserAuthenticationParameters(0, AUTH_BIOMETRIC_STRONG)`, API 28–29 `setUserAuthenticationValidityDurationSeconds(-1)`, `setInvalidatedByBiometricEnrollment(true)`, `setAttestationChallenge` when `createKeys` gets one (chain returned as `punchAttestationChain`). `BiometricSignerModule`: `BiometricPrompt` with `CryptoObject(Signature)`, `BIOMETRIC_STRONG` only, `BiometricManager.canAuthenticate` mapping, `KeyPermanentlyInvalidatedException` → `KEY_INVALIDATED` |
 | `modules/biometric-signer/ios/`                         | Swift (task 12.3): Secure Enclave, `.biometryCurrentSet`, `LAContext` reuse 0; registers as `BiometricSignerModule` (see `expo-module.config.json`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
-Android notes: `androidx.biometric:biometric:1.1.0`. `BIOMETRIC_STATUS_UNKNOWN` (API 28–29 phones whose face unlock the compat library cannot grade) is reported as `NO_STRONG_BIOMETRIC_HARDWARE`, so those phones pair with a fingerprint. `capability()` decides `NO_SECURE_HARDWARE` by creating and deleting a probe key once per process, because the key store only reports the security level after a key exists. Native code is compiled by `expo prebuild` (the `prebuild:android` / `prebuild:ios` targets, see CI below) and by EAS; the TypeScript tests (`src/signer/*.test.ts`) cover error mapping, Base64 / DER, and a WebCrypto round trip verified both with `crypto.subtle` and with node's DER verifier, the same check as the server's `SHA256withECDSA`.
+Android notes: `androidx.biometric:biometric:1.1.0`. `BIOMETRIC_STATUS_UNKNOWN` (API 28–29 phones whose face unlock the compat library cannot grade) is reported as `NO_STRONG_BIOMETRIC_HARDWARE`, so those phones pair with a fingerprint. `capability()` decides `NO_SECURE_HARDWARE` by creating and deleting a probe key once per process, because the key store only reports the security level after a key exists. Native code is compiled by `expo prebuild` (the `prebuild:android` / `prebuild:ios` targets, see CI below) and by the release workflow (see Releasing); the TypeScript tests (`src/signer/*.test.ts`) cover error mapping, Base64 / DER, and a WebCrypto round trip verified both with `crypto.subtle` and with node's DER verifier, the same check as the server's `SHA256withECDSA`.
 
 ### Key attestation (task 16.4, recorded only)
 
@@ -121,12 +121,12 @@ What the server verifies (`KeyAttestation` in `inventory-api`): the chain to a G
 
 ## Environment
 
-| Name                               | Purpose                                                                                                                                            | Read in                                 | Set in                                                                                           |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `EXPO_PUBLIC_API_URL`              | inventory-api base URL                                                                                                                             | `src/config.ts` (inlined by Metro)      | `.env` at the repository root locally (`.env-example`); EAS environment `preview` / `production` |
-| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | Google OAuth web client id (ID-token audience, design DD8)                                                                                         | `src/config.ts` (inlined by Metro)      | same                                                                                             |
-| `EXPO_PUBLIC_WEB_URL`              | optional: the web dashboard's base URL, for "Forgot password?" (`/forgot-password` opens in the browser); when unset, the API URL's origin is used | `src/config.ts` (inlined by Metro)      | same, only when the web is not served from the API URL's origin                                  |
-| `EXPO_PUBLIC_PSEUDO_LOCALE`        | `1` turns on the pseudo-locale (R12.11); unset for releases                                                                                        | `src/i18n/pseudo.ts` (inlined by Metro) | the shell when making a layout-check build; never in EAS environments                            |
+| Name                               | Purpose                                                                                                                                            | Read in                                 | Set in                                                                                        |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `EXPO_PUBLIC_API_URL`              | inventory-api base URL                                                                                                                             | `src/config.ts` (inlined by Metro)      | `.env` at the repository root locally (`.env-example`); repository variable for `release.yml` |
+| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | Google OAuth web client id (ID-token audience, design DD8)                                                                                         | `src/config.ts` (inlined by Metro)      | same                                                                                          |
+| `EXPO_PUBLIC_WEB_URL`              | optional: the web dashboard's base URL, for "Forgot password?" (`/forgot-password` opens in the browser); when unset, the API URL's origin is used | `src/config.ts` (inlined by Metro)      | same, only when the web is not served from the API URL's origin                               |
+| `EXPO_PUBLIC_PSEUDO_LOCALE`        | `1` turns on the pseudo-locale (R12.11); unset for releases                                                                                        | `src/i18n/pseudo.ts` (inlined by Metro) | the shell when making a layout-check build; never in a release build                          |
 
 `EXPO_PUBLIC_*` values are public in the bundle. Never put a secret in one. A Google client id is public by design; the secret stays with Google.
 
@@ -147,10 +147,9 @@ cp .env-example .env                # then edit EXPO_PUBLIC_API_URL and EXPO_PUB
 pnpm exec expo config --type public # resolved config (fails without an https:// API URL)
 pnpm start                          # expo start
 pnpm android                        # expo run:android; needs the Android SDK; the signer module is native, so Expo Go cannot run the app
-pnpm eas:preview                    # eas build --profile preview --platform android
 ```
 
-There is no `build` script; EAS builds the binaries that ship (`eas.json`). The two `prebuild:*` scripts exist so CI can prove the native projects generate and compile. `pnpm format` / `pnpm format:check` run Prettier (`.prettierrc`, `.prettierignore`).
+There is no `build` script; `.github/workflows/release.yml` builds the binaries that ship (see Releasing). The two `prebuild:*` scripts exist so CI can prove the native projects generate and compile. `pnpm format` / `pnpm format:check` run Prettier (`.prettierrc`, `.prettierignore`).
 
 ## Protocol parity
 
@@ -163,7 +162,7 @@ There is no `build` script; EAS builds the binaries that ship (`eas.json`). The 
 
 ## CI
 
-Three workflows in `.github/workflows`, all on pull requests and pushes to `main`. Requirement R4.11: Android ships, iOS builds and passes the same tests without changes.
+Three workflows in `.github/workflows` run on pull requests and pushes to `main`; a fourth, `release.yml`, ships Android (see Releasing). Requirement R4.11: Android ships, iOS builds and passes the same tests without changes.
 
 | Workflow      | Runner          | Runs                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -173,14 +172,40 @@ Three workflows in `.github/workflows`, all on pull requests and pushes to `main
 
 Notes:
 
-- `EXPO_PUBLIC_API_URL` is set to the placeholder `https://ci.invalid/api/v1` for the whole workflow because `app.config.js` refuses to prebuild without an `https://` URL. The CI binaries are never installed anywhere; real builds take the URL from the EAS environment named in `eas.json`.
+- `EXPO_PUBLIC_API_URL` is set to the placeholder `https://ci.invalid/api/v1` for the whole workflow because `app.config.js` refuses to prebuild without an `https://` URL. The CI binaries are never installed anywhere; release builds take it from the repository variable (see Releasing).
 - `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` is set to a placeholder for the same reason (`app.config.js` and `src/config.ts` refuse an empty id, design DD8); `src/config.test.ts` covers both gates.
 - Two tests in `pnpm test` render every worker-app screen from `test-support/screen-catalogue.tsx` (each in the states the design's screen inventory names, with fakes): `src/i18n/pseudo.test.tsx` under `EXPO_PUBLIC_PSEUDO_LOCALE=1` asserts no text carries `numberOfLines`, no label is empty, and no English string reaches a screen except through `t()` (R12.11); `src/components/primaryButtonCount.test.tsx` asserts the number of `PrimaryButton`s each state draws is the design's (0 or 1, R12.5). The `lint` target runs the worker-app rules listed under Boundaries.
 - `prebuild:android` compiles the native modules the Stockkart Team app added (`@react-native-google-signin/google-signin`, `expo-image-picker`, `expo-image-manipulator`, `expo-font`, `expo-haptics`) next to the HR-module ones. Google sign-in on Android needs no config plugin (the web client id is passed at runtime); the plugin is only for iOS URL schemes or a Firebase `google-services.json`, neither of which the app uses.
 - The Xcode workspace and scheme are named after `expo.name` with non-word characters removed (`Stockkart Team` → `StockkartTeam`). Renaming the app means updating `ios.yml`.
 - Generated native projects (`android/`, `ios/`) are gitignored (`.gitignore`, `.prettierignore`); the hand-written native code lives in `modules/biometric-signer`.
-- The `ios` job uses a GitHub-hosted macOS runner (`xcodebuild`, not EAS), so no Expo account or `EXPO_TOKEN` is needed in CI. If macOS runners become unavailable, the fallback is `eas build --platform ios --profile preview --no-wait` behind an `EXPO_TOKEN` secret, which compiles on EAS servers and still submits nothing (`eas.json` has no iOS `submit` entry).
-- Releases: `eas.json` `preview` submits Android to the Play **internal** testing track; `production` submits a Play draft. iOS has build profiles only.
+- No workflow needs an Expo account or `EXPO_TOKEN`; every build runs on GitHub-hosted runners.
+
+## Releasing
+
+Android ships from `.github/workflows/release.yml` on GitHub Actions; nothing is built on EAS. iOS is built (`ios.yml`) but not released.
+
+- A `v*` tag push builds a signed app bundle, uploads it to the Play **internal** testing track (`completed`) and attaches `app-release.aab` to a GitHub release for the tag. A manual run (Actions → Release → Run workflow) picks the track: `internal`, or `production`, which is uploaded as a **draft** for a person to roll out in the Play Console.
+- `versionCode` is `1000 + github.run_number` and `versionName` is the tag without its `v` (`0.0.0-manual.<run>` on a manual run), passed to `app.config.js` as `APP_VERSION_CODE` / `APP_VERSION_NAME`. Re-running a run reuses its number, which Play refuses; start a new run instead.
+- `plugins/withReleaseSigning.js` signs `bundleRelease` with the upload key only when Gradle gets all four of `-PuploadStoreFile`, `-PuploadStorePassword`, `-PuploadKeyAlias`, `-PuploadKeyPassword`; without them a release build is debug-signed, as before.
+
+One-time setup:
+
+1. Create the upload key (keep the file and both passwords in the team's password manager; never commit it, `.gitignore` covers `*.keystore`):
+   ```sh
+   keytool -genkeypair -v -keystore upload.keystore -alias upload -keyalg RSA -keysize 2048 -validity 10000
+   base64 -w0 upload.keystore   # the value of ANDROID_UPLOAD_KEYSTORE_BASE64
+   ```
+2. Repository secrets (Settings → Secrets and variables → Actions → Secrets): `ANDROID_UPLOAD_KEYSTORE_BASE64` (the line above), `ANDROID_UPLOAD_STORE_PASSWORD`, `ANDROID_UPLOAD_KEY_ALIAS` (`upload`), `ANDROID_UPLOAD_KEY_PASSWORD`. keytool writes PKCS12 keystores (JDK 9+), whose key password is always the store password, so `ANDROID_UPLOAD_KEY_PASSWORD` is the same value as `ANDROID_UPLOAD_STORE_PASSWORD`; a different value fails `packageRelease` with `Get Key failed: Given final block not properly padded`. The job runs in the GitHub environment `release` (created on the first run); to limit who can ship and from which refs, add required reviewers and deployment rules (`main`, `v*`) there and move these secrets and `PLAY_SERVICE_ACCOUNT_JSON` into it.
+3. Google Play service account: Play Console → Setup → API access → link a Google Cloud project, create a service account, download its JSON key, then grant it the **Release manager** permission for the app. Store the JSON as the secret `PLAY_SERVICE_ACCOUNT_JSON` and delete the downloaded file.
+4. Repository variables (same page → Variables): `EXPO_PUBLIC_API_URL` (the production `https://` API URL) and `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`. The workflow fails at its first step when either is empty, and `app.config.js` refuses a non-`https://` URL.
+5. First upload by hand: Play accepts API uploads only after the app exists with one bundle. Run the workflow once manually (or build locally with the same `-Pupload…` properties), download the `.aab` artifact, create the app `in.stockkart.attendance` in the Play Console and upload it to internal testing there, enrolling in Play App Signing.
+6. Google sign-in: add the SHA-1 of the upload key (`keytool -list -v -keystore upload.keystore -alias upload`) and the SHA-1 of the Play app-signing key (Play Console → Setup → App signing) to the Android OAuth client of `in.stockkart.attendance` (Google Cloud console → Credentials). Installs from Play carry the app-signing key; locally signed release builds carry the upload key.
+
+Then each release is:
+
+```sh
+git tag v1.0.0 && git push --tags
+```
 
 ## Manual device checks (`TESTING.md`)
 

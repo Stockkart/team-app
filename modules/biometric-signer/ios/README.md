@@ -83,7 +83,7 @@ Not part of this module. iOS has no mock-location flag; `src/location/LocationRe
 
 ## Verifying without Xcode on the dev machine
 
-No Xcode is available in the Linux dev container, so the Swift is written against the Security / LocalAuthentication APIs but has not been compiled here. Verify on a Mac or on EAS:
+No Xcode is available in the Linux dev container, so the Swift is written against the Security / LocalAuthentication APIs but has not been compiled here. Verify on a Mac or with the `ios` job of `.github/workflows/ios.yml` (GitHub macOS runner):
 
 ```sh
 # 1. Lint the podspec and compile the Swift in isolation (Mac with Xcode + CocoaPods)
@@ -91,13 +91,9 @@ cd modules/biometric-signer/ios
 pod lib lint BiometricSigner.podspec --allow-warnings --platforms=ios \
   --sources='https://cdn.cocoapods.org/' --include-podspecs='../../../node_modules/expo-modules-core/*.podspec'
 #   (ExpoModulesCore is not on the CDN; --include-podspecs points at the workspace copy. If the
-#    include path does not resolve, step 2 is the reliable check.)
+#    include path does not resolve, step 2 or the ios.yml workflow is the reliable check.)
 
-# 2. Full iOS build on EAS (no Mac needed; uses the `preview` profile from eas.json)
-cd stockkart-team-app
-pnpm exec eas build --platform ios --profile preview
-
-# 3. Local prebuild + Xcode build on a Mac
+# 2. Local prebuild + Xcode build on a Mac
 cd stockkart-team-app
 pnpm exec expo prebuild --platform ios --clean
 pnpm exec expo run:ios --device     # Secure Enclave and Face ID / Touch ID need a real device

@@ -1,5 +1,5 @@
 // Local Expo Module (Expo SDK 55, Expo Modules API). Picked up by expo-modules-autolinking from
-// modules/biometric-signer during `expo prebuild` / `eas build` (stockkart-team-app repository root).
+// modules/biometric-signer during `expo prebuild` (stockkart-team-app repository root).
 apply plugin: 'com.android.library'
 
 group = 'expo.modules.biometricsigner'

@@ -1,6 +1,6 @@
 # Stockkart Team app: proves the Android native project generates and compiles (`expo prebuild` +
-# Gradle `assembleDebug`, HR-module R4.11). Nothing here is released: Android ships through EAS
-# (`eas build --profile preview`, Play internal testing track, see eas.json).
+# Gradle `assembleDebug`, HR-module R4.11). Nothing here is released: Android ships through
+# release.yml (signed `bundleRelease` on a `v*` tag, see README.md → Releasing).
 name: Android
 
 on:

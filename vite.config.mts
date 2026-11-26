@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import { configDefaults, defineConfig } from 'vitest/config';
 
 /**
- * Test-only Vite config (no `build`: the app is built by Expo / EAS, not Vite). `pnpm test` runs
+ * Test-only Vite config (no `build`: the app is built by Expo and Gradle, not Vite). `pnpm test` runs
  * `vitest run` against it.
  *
  * Three projects. The third is `packages/attendance-protocol/vite.config.mts`, the app's copy of the
@@ -57,7 +57,7 @@ export default defineConfig({
         test: {
           name: 'node',
           environment: 'node',
-          include: ['src/**/*.{test,spec}.{ts,tsx}'],
+          include: ['src/**/*.{test,spec}.{ts,tsx}', 'plugins/*.test.mjs', 'app.config.test.mjs'],
           exclude: [...configDefaults.exclude, ...RENDERED],
         },
       },

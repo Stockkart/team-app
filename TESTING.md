@@ -21,7 +21,7 @@ Read the per-device notes in section 4 before running a column; they say which s
 
 ## 2. Before you start
 
-**Builds.** Android: the `preview` profile from `eas.json` (`pnpm exec eas build --profile preview --platform android`), installed from the Play internal testing track or the `.aab`/`.apk` EAS produces. iOS: `pnpm exec expo prebuild --platform ios --clean && pnpm exec expo run:ios --device` on a Mac, or an EAS iOS `preview` build installed through TestFlight internal testing. The Secure Enclave, Face ID and Touch ID need a real device; the simulator reports `NO_SECURE_HARDWARE`. The iOS compile itself (R4.11) is verified by the `ios` job of `.github/workflows/attendance-app.yml` on a GitHub macOS runner, not on a developer machine (Linux hosts can only run `expo prebuild --platform ios --no-install`, `expo-doctor` and `expo config --type introspect`). Write the build id / version (Profile → "Version x.y.z") in the results table. Section 6 needs two more builds, listed there.
+**Builds.** Android: a release build from `.github/workflows/release.yml` (a `v*` tag or a manual run, README.md → Releasing), installed from the Play internal testing track. iOS: `pnpm exec expo prebuild --platform ios --clean && pnpm exec expo run:ios --device` on a Mac. The Secure Enclave, Face ID and Touch ID need a real device; the simulator reports `NO_SECURE_HARDWARE`. The iOS compile itself (R4.11) is verified by the `ios` job of `.github/workflows/attendance-app.yml` on a GitHub macOS runner, not on a developer machine (Linux hosts can only run `expo prebuild --platform ios --no-install`, `expo-doctor` and `expo config --type introspect`). Write the build id / version (Profile → "Version x.y.z") in the results table. Section 6 needs two more builds, listed there.
 
 **Backend.** A test deployment of `inventory-api` (never production: step 20 edits code, steps 12–13 and 16 write deliberately bad punches). You need: the manager web UI, read access to its MongoDB (`mongosh`), the Grafana dashboard `inventory-api / 03 module` or the raw `/actuator/prometheus` page, and a backend you can redeploy for step 20.
 
@@ -168,7 +168,7 @@ cd stockkart-team-app   # the repository root
 EXPO_PUBLIC_API_URL=http://api.example.in/api/v1 pnpm exec expo config --type public
 ```
 
-Expect: the command fails with `EXPO_PUBLIC_API_URL must be an https:// URL (got "http://api.example.in/api/v1"). Set it in .env at the repository root or in the EAS environment for this build profile.` from `app.config.js`; the same text stops `expo prebuild` and `eas build`. With `EXPO_PUBLIC_API_URL=` (empty) the message shows `(got "")`. Then confirm the real `preview` and `production` EAS environments hold an `https://` value.
+Expect: the command fails with `EXPO_PUBLIC_API_URL must be an https:// URL (got "http://api.example.in/api/v1"). Set it in .env at the repository root or in the GitHub repository variables for a release build.` from `app.config.js`; the same text stops `expo prebuild`, locally and in `release.yml`. With `EXPO_PUBLIC_API_URL=` (empty) the message shows `(got "")`. Then confirm the repository variable `EXPO_PUBLIC_API_URL` (Settings → Secrets and variables → Actions → Variables) holds an `https://` value.
 
 ## 4. What differs per device
 
@@ -240,9 +240,9 @@ Spec task 17.2 (`.kiro/specs/worker-app`; R12.2, R12.9, R12.11). Everything that
 
 ### 6.1 Before you start (in addition to section 2)
 
-**Builds.** Two: (1) the release `preview` build with `EXPO_PUBLIC_API_URL` and `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` from the EAS environment (the build fails without either; `app.config.js`); (2) a layout-check build made with `EXPO_PUBLIC_PSEUDO_LOCALE=1` in the shell (never in an EAS environment), for W28 only.
+**Builds.** Two: (1) a `release.yml` internal-track build with `EXPO_PUBLIC_API_URL` and `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` from the repository variables (the build fails without either; `app.config.js`); (2) a layout-check build made with `EXPO_PUBLIC_PSEUDO_LOCALE=1` in the shell (never in a release build), for W28 only.
 
-**Google.** The Android client id of the signing key of build 1 (Google Cloud console → Credentials → OAuth client, type Android, with the SHA-1 of the EAS `preview` keystore: `pnpm exec eas credentials`) and the web client id in `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` are both listed in the test backend's `GOOGLE_OAUTH_CLIENT_IDS` (`google.oauth.client-ids`); a token for any other audience is refused as `INVALID_CREDENTIALS`. The phone has a Google account signed in whose e-mail has **no** Stockkart login.
+**Google.** The Android client id of the signing key of build 1 (Google Cloud console → Credentials → OAuth client, type Android, with the SHA-1 of the Play app-signing key for Play installs and of the upload key, README.md → Releasing step 6) and the web client id in `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` are both listed in the test backend's `GOOGLE_OAUTH_CLIENT_IDS` (`google.oauth.client-ids`); a token for any other audience is refused as `INVALID_CREDENTIALS`. The phone has a Google account signed in whose e-mail has **no** Stockkart login.
 
 **Accounts and employees.** On the test backend: the owner of the test shop ("Sri Ganesh Stores" below; its owner's account name begins with the first name you want to read on the phone, "Ramesh Kumar" → "owner Ramesh"); an approver login with "add and edit employees"; a Cashier login without it. Three worker identities you will create from the phone: **A** (password; phone number `P_A`), **B** (password; `P_B`), **G** (the phone's Google account). Before W13 the manager adds by hand an ACTIVE employee "Worker B hand" with phone `P_B` and no e-mail (the possible match for B). Nothing else of the shop's HR data is touched by this section except through the flows under test.
 
@@ -490,7 +490,7 @@ Copy once per release into the release ticket. One column per device; `P` pass, 
 | ------------------------------------------------- | ------------ | ----------- | ------------ | ------------ | ----------------- | ------------------ |
 | Device (make, model)                              |              |             |              |              |                   |                    |
 | OS version / API level                            |              |             |              |              |                   |                    |
-| App build (Profile → Version) / EAS build id      |              |             |              |              |                   |                    |
+| App build (Profile → Version) / release run       |              |             |              |              |                   |                    |
 | Backend build / commit                            |              |             |              |              |                   |                    |
 | Tester                                            |              |             |              |              |                   |                    |
 | Date                                              |              |             |              |              |                   |                    |

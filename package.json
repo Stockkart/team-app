@@ -21,9 +21,7 @@
     "check:strings": "node scripts/check-strings.mjs",
     "check:protocol": "node scripts/protocol-parity.mjs",
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "eas:preview": "eas build --profile preview --platform android",
-    "eas:production": "eas build --profile production --platform android"
+    "format:check": "prettier --check ."
   },
   "expo": {
     "install": {
