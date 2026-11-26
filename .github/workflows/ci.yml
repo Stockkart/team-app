@@ -1,0 +1,83 @@
+# Stockkart Team app: lint, typecheck, tests (app and packages/attendance-protocol), the strings
+# cross-check and the protocol parity check (worker-app D17, DD21).
+#
+# Protocol parity: `scripts/protocol-parity.mjs` compares packages/attendance-protocol with the web
+# monorepo's platform/attendance-protocol. The step checks `Stockkart/inventory-platform` out when
+# the workflow's token can read it (set the `INVENTORY_PLATFORM_TOKEN` secret to a read token for
+# that repository; the default `GITHUB_TOKEN` cannot read a sibling private repository), and
+# otherwise lets the script print its skip line and pass.
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  # Build-time gates only (app.config.js refuses a non-https URL or an empty Google client id).
+  # Nothing built here is installed anywhere, so neither value needs to be real.
+  EXPO_PUBLIC_API_URL: https://ci.invalid/api/v1
+  EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ci-placeholder.apps.googleusercontent.com
+
+jobs:
+  checks:
+    name: lint, typecheck, test, strings, protocol parity
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Enable Corepack (pnpm 9.8.0 from package.json#packageManager)
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.8.0 --activate
+          pnpm --version
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm lint
+
+      - run: pnpm typecheck
+
+      - run: pnpm test
+
+      - run: pnpm check:strings
+
+      - name: Check out inventory-platform (web copy of the protocol), when reachable
+        id: platform
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          repository: Stockkart/inventory-platform
+          ref: main
+          token: ${{ secrets.INVENTORY_PLATFORM_TOKEN || github.token }}
+          path: inventory-platform
+          sparse-checkout: platform/attendance-protocol
+
+      - name: Protocol parity (skips when inventory-platform is not checked out)
+        env:
+          INVENTORY_PLATFORM_DIR: ${{ github.workspace }}/inventory-platform
+        run: |
+          if [ "${{ steps.platform.outcome }}" != "success" ]; then
+            rm -rf "$INVENTORY_PLATFORM_DIR"
+          fi
+          pnpm check:protocol
+
+      - name: Parity script self-test
+        run: node --test scripts/protocol-parity.test.mjs

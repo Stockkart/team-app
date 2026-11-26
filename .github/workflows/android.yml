@@ -1,0 +1,66 @@
+# Stockkart Team app: proves the Android native project generates and compiles (`expo prebuild` +
+# Gradle `assembleDebug`, HR-module R4.11). Nothing here is released: Android ships through EAS
+# (`eas build --profile preview`, Play internal testing track, see eas.json).
+name: Android
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  EXPO_PUBLIC_API_URL: https://ci.invalid/api/v1
+  EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ci-placeholder.apps.googleusercontent.com
+  EXPO_NO_TELEMETRY: 1
+
+jobs:
+  android:
+    name: prebuild and assembleDebug
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Enable Corepack (pnpm 9.8.0)
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.8.0 --activate
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      - run: pnpm install --frozen-lockfile
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: expo prebuild (android)
+        run: pnpm prebuild:android
+
+      - name: Gradle assembleDebug
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stockkart-team-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          retention-days: 7

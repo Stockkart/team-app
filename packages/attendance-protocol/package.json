@@ -1,0 +1,26 @@
+{
+  "name": "@stockkart/attendance-protocol",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@stockkart/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --build tsconfig.json --emitDeclarationOnly --pretty",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "tslib": "^2.3.0"
+  }
+}

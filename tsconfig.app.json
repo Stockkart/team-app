@@ -1,0 +1,59 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": true,
+    "importHelpers": true,
+    "isolatedModules": true,
+    "noEmitOnError": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "es2022",
+    "baseUrl": ".",
+    "rootDir": ".",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/tsconfig.app.tsbuildinfo",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "customConditions": ["react-native", "@stockkart/source"],
+    "lib": ["es2022", "dom"],
+    "jsx": "react-jsx",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": [],
+    "paths": {
+      "@stockkart/attendance-protocol": ["./packages/attendance-protocol/src/index.ts"]
+    }
+  },
+  "include": [
+    "index.ts",
+    "App.tsx",
+    "expo-env.d.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "modules/**/*.ts"
+  ],
+  "exclude": [
+    "src/**/*.spec.ts",
+    "src/**/*.test.ts",
+    "src/**/*.spec.tsx",
+    "src/**/*.test.tsx",
+    "dist",
+    ".expo",
+    "android",
+    "ios",
+    "node_modules",
+    "packages"
+  ],
+  "references": [
+    {
+      "path": "./packages/attendance-protocol/tsconfig.lib.json"
+    }
+  ]
+}

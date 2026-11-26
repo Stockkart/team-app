@@ -1,0 +1,87 @@
+{
+  "name": "stockkart-team",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.ts",
+  "packageManager": "pnpm@9.8.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "prebuild": "expo prebuild",
+    "prebuild:android": "expo prebuild --platform android --no-install",
+    "prebuild:ios": "expo prebuild --platform ios --no-install",
+    "doctor": "expo-doctor",
+    "lint": "eslint .",
+    "typecheck": "tsc --build tsconfig.json --emitDeclarationOnly --pretty",
+    "test": "vitest run",
+    "check:strings": "node scripts/check-strings.mjs",
+    "check:protocol": "node scripts/protocol-parity.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "eas:preview": "eas build --profile preview --platform android",
+    "eas:production": "eas build --profile production --platform android"
+  },
+  "expo": {
+    "install": {
+      "exclude": [
+        "@types/react"
+      ]
+    }
+  },
+  "dependencies": {
+    "@react-native-community/netinfo": "11.5.2",
+    "@react-native-google-signin/google-signin": "17.0.0",
+    "@react-navigation/native": "^7.1.0",
+    "@react-navigation/native-stack": "^7.3.0",
+    "@stockkart/attendance-protocol": "workspace:*",
+    "expo": "~55.0.32",
+    "expo-background-task": "~55.0.22",
+    "expo-build-properties": "~55.0.18",
+    "expo-camera": "~55.0.23",
+    "expo-constants": "~55.0.17",
+    "expo-crypto": "~55.0.19",
+    "expo-font": "~55.0.8",
+    "expo-haptics": "~55.0.18",
+    "expo-image-manipulator": "~55.0.21",
+    "expo-image-picker": "~55.0.24",
+    "expo-linear-gradient": "~55.0.18",
+    "expo-location": "~55.1.15",
+    "expo-secure-store": "~55.0.18",
+    "expo-sqlite": "~55.0.20",
+    "expo-status-bar": "~55.0.6",
+    "expo-task-manager": "~55.0.20",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "react-native": "0.83.10",
+    "react-native-safe-area-context": "~5.6.2",
+    "react-native-screens": "~4.23.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.0",
+    "@eslint/js": "^9.39.1",
+    "@testing-library/dom": "10.4.0",
+    "@testing-library/jest-dom": "6.6.3",
+    "@testing-library/react": "16.3.0",
+    "@types/node": "^22.10.0",
+    "@types/react": "~19.2.0",
+    "babel-preset-expo": "55.0.25",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-jsx-a11y": "6.10.1",
+    "eslint-plugin-react": "7.35.0",
+    "eslint-plugin-react-hooks": "5.0.0",
+    "fast-check": "3.23.2",
+    "globals": "^15.15.0",
+    "jsdom": "~22.1.0",
+    "prettier": "^2.8.8",
+    "tslib": "^2.8.1",
+    "typescript": "~5.9.2",
+    "typescript-eslint": "^8.48.0",
+    "vite": "^7.2.4",
+    "vitest": "^4.0.14"
+  }
+}
